@@ -1,13 +1,31 @@
-# QuickAppsCMS Docker Installation Process
+# QuickAppsCMS Docker Installation
 
-This document details the complete installation process for QuickAppsCMS with Docker containers.
+This project sets up QuickAppsCMS (CakePHP 3.3.16) in a containerized environment.
+
+## Current Setup
+
+- **PHP**: 7.4 (with all required extensions)
+- **Web Server**: Apache with mod_rewrite
+- **Database**: MySQL 5.7
+- **CakePHP**: 3.3.16
+- **QuickAppsCMS**: 2.0 (dev-master)
+
+## Services
+
+- **Web Application**: http://localhost:8080
+- **phpMyAdmin**: http://localhost:8081
+- **MySQL**: localhost:3306
+
+## Database Credentials
+
+- **Database Name**: quickapps
+- **Username**: quickapps
+- **Password**: quickapps123
+- **Root Password**: rootpassword
 
 ## Installation Overview
 
 **Date**: September 14, 2025  
-**QuickAppsCMS Version**: 2.0 (dev-master)  
-**CakePHP Version**: 3.3.16  
-**PHP Version**: 7.4  
 **Platform**: macOS (Darwin, ARM64/Apple Silicon)
 
 ## Step-by-Step Installation Process
@@ -23,7 +41,7 @@ quickapps-migration/
 ├── docker-compose.yml
 ├── src/                  # QuickAppsCMS installation directory
 ├── .env                  # Environment variables
-└── README.md            # User documentation
+└── INSTALLATION.md      # Complete documentation
 ```
 
 **Command executed:**
@@ -238,6 +256,32 @@ docker exec quickapps-web bash -c "rm -rf /var/www/html/tmp/cache/*"
 - ✅ File permissions properly set
 - ✅ Application accessible at http://localhost:8080
 - ✅ Web installer ready to complete setup
+
+## Getting Started
+
+1. Ensure Docker is running on your machine
+2. Navigate to the project directory
+3. Start the containers:
+   ```bash
+   docker-compose up -d
+   ```
+4. Access the installer at: http://localhost:8080
+5. Complete the web-based installation using the database credentials above
+
+## Important Notes
+
+- The MySQL container runs in x86_64 emulation mode on Apple Silicon (ARM64) for compatibility
+- All application files are in the `src/` directory
+- Database data is persisted in a Docker volume
+- The `.env` file contains environment variables for the containers
+
+## Additional Troubleshooting
+
+If you need to reinstall QuickAppsCMS:
+```bash
+docker exec quickapps-web bash -c "rm -rf /var/www/html/* && cd /var/www/html && composer create-project -s dev quickapps/website . --no-install"
+docker exec quickapps-web bash -c "cd /var/www/html && composer config allow-plugins.aura/installer-default true && composer config allow-plugins.cakephp/plugin-installer true && composer install"
+```
 
 ## Next Required Step
 
