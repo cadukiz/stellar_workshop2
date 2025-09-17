@@ -165,13 +165,44 @@ docker exec quickapps-web php -r "echo (new PDO('mysql:host=db;dbname=quickapps'
 **Port Conflicts**: Applications use different port ranges (8080-8081 vs 8090-8091)
 **Container Naming**: Uses `quickapps-*` vs `quickapps5-*` prefixes to avoid conflicts
 
+## Migration Documentation
+
+The `/migration-docs/` folder contains comprehensive analysis documents for the CakePHP 3→5 migration:
+
+### 📋 PROJECT_AUDIT.MD
+**Objective**: Complete x-ray analysis of QuickAppsCMS architecture
+- **Contents**: Folder structure, 17 core plugins, dependencies, configuration files, components
+- **Key Sections**: Plugin ecosystem, EAV model, template system (Back/Common/Front), security features
+- **Use Case**: Understanding the overall project complexity and migration scope
+- **Critical Info**: Plugin dependency matrix, migration critical points, recommended strategy
+
+### 🗺️ PLUGINS_DEPENDENCY_MAP.md  
+**Objective**: Visual dependency relationships between all QuickAppsCMS plugins
+- **Contents**: Mermaid diagram showing plugin dependencies, migration risks, resolution order
+- **Key Sections**: Dependency statistics, critical migration paths, risk assessment
+- **Use Case**: Planning plugin migration sequence and identifying circular dependencies
+- **Critical Info**: Foundation plugins (cms, eav), high-risk dependencies (GoAOP), migration timeline
+
+### 🧩 CONTROLLERS_DEPENDENCY_MAP.md
+**Objective**: Controller architecture analysis and inheritance mapping
+- **Contents**: Controller hierarchy, traits/components usage, admin vs public routes
+- **Key Sections**: 42 controllers, inheritance patterns, trait analysis, API endpoints
+- **Use Case**: Understanding controller migration complexity and authentication system
+- **Critical Info**: CMS foundation controller, custom auth system, admin interface architecture
+
+### Migration Documentation Usage
+These documents should be consulted in order:
+1. **PROJECT_AUDIT.MD** - Get overall understanding
+2. **PLUGINS_DEPENDENCY_MAP.md** - Plan plugin migration order  
+3. **CONTROLLERS_DEPENDENCY_MAP.md** - Understand controller migration complexity
+
 ## File Locations
 
 ### Key Files to Monitor
 - `quickapps-cakephp3/src/config/settings.php` - Core CMS configuration
 - `quickapps-cakephp3/src/plugins/` - Custom plugins (if any)
 - `quickapps-cakephp5/src/config/app_local.php` - Target app configuration
-- `PROJECT_CONTEXT.md` - Migration progress documentation
+- `migration-docs/` - Migration analysis documentation
 
 ### Plugin Locations
 - Core plugins: `/vendor/quickapps-plugins/`
