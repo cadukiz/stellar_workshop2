@@ -190,11 +190,19 @@ The `/migration-docs/` folder contains comprehensive analysis documents for the 
 - **Use Case**: Understanding controller migration complexity and authentication system
 - **Critical Info**: CMS foundation controller, custom auth system, admin interface architecture
 
+### 🔧 UNKNOWN_PATTERNS/
+**Objective**: Document non-standard CakePHP patterns unique to QuickAppsCMS
+- **Contents**: 10 custom architectural patterns with migration strategies
+- **Key Sections**: Dynamic plugin loading, EAV implementation, custom authentication, AOP integration
+- **Use Case**: Understanding QuickAppsCMS-specific patterns that require special migration consideration
+- **Critical Info**: Security implications (php_eval), performance impacts, modern CakePHP 5 alternatives
+
 ### Migration Documentation Usage
 These documents should be consulted in order:
 1. **PROJECT_AUDIT.MD** - Get overall understanding
 2. **PLUGINS_DEPENDENCY_MAP.md** - Plan plugin migration order  
 3. **CONTROLLERS_DEPENDENCY_MAP.md** - Understand controller migration complexity
+4. **UNKNOWN_PATTERNS/** - Identify custom patterns requiring special migration handling
 
 ## File Locations
 
@@ -203,6 +211,7 @@ These documents should be consulted in order:
 - `quickapps-cakephp3/src/plugins/` - Custom plugins (if any)
 - `quickapps-cakephp5/src/config/app_local.php` - Target app configuration
 - `migration-docs/` - Migration analysis documentation
+- `migration-docs/unknown_patterns/` - Custom QuickAppsCMS architectural patterns
 
 ### Plugin Locations
 - Core plugins: `/vendor/quickapps-plugins/`
@@ -216,8 +225,9 @@ When migrating functionality, always:
 2. Identify template dependencies (Back/Common/Front structure)
 3. Map custom fields and EAV relationships  
 4. Check for plugin interdependencies
-5. Validate admin interface functionality
-6. Test public-facing features
-7. Verify permission systems work correctly
+5. **Review unknown patterns** in `/migration-docs/unknown_patterns/` that may affect the component
+6. Validate admin interface functionality
+7. Test public-facing features
+8. Verify permission systems work correctly
 
-The QuickAppsCMS plugin ecosystem is tightly integrated, so changes to one plugin often affect others.
+The QuickAppsCMS plugin ecosystem is tightly integrated, so changes to one plugin often affect others. **Pay special attention to the 10 documented unknown patterns** as they represent critical architectural decisions that require careful migration planning.
