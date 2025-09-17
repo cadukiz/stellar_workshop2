@@ -46,7 +46,7 @@ quickapps-migration/
 
 **Command executed:**
 ```bash
-mkdir -p quickapps-migration/docker quickapps-migration/src
+mkdir -p quickapps-cakephp3/docker quickapps-cakephp3cakephp3/src
 ```
 
 ### 2. Dockerfile Configuration

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: quickapps5-web
+    ports:
+      - "8090:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/apache-config.conf:/etc/apache2/sites-available/000-default.conf
+    environment:
+      - APACHE_RUN_USER=www-data
+      - APACHE_RUN_GROUP=www-data
+    depends_on:
+      - db
+    networks:
+      - quickapps5-network
+
+  db:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: quickapps5-db
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-quickapps5}
+      MYSQL_USER: ${MYSQL_USER:-quickapps5}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-quickapps123}
+    volumes:
+      - db5-data:/var/lib/mysql
+    networks:
+      - quickapps5-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: quickapps5-phpmyadmin
+    ports:
+      - "8091:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER:-quickapps5}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-quickapps123}
+    depends_on:
+      - db
+    networks:
+      - quickapps5-network
+
+volumes:
+  db5-data:
+
+networks:
+  quickapps5-network:
+    driver: bridge
