@@ -8,6 +8,25 @@
 
 ---
 
+## 📋 TABLE OF CONTENTS
+
+| Section | Summary |
+|---------|---------|
+| **📁 Project Structure Overview** | Root architecture, template system (Back/Common/Front), directory layout |
+| **🔌 Plugin Ecosystem** | 17 core plugins, dependency matrix, critical plugin relationships |
+| **⚙️ Configuration Files** | Core config files, database settings, security configuration |
+| **🧩 Components & Controllers** | Custom components, controller structure, admin interfaces |
+| **🗄️ Model Architecture** | EAV system, model behaviors, plugin-specific models |
+| **🎨 Theme System** | Theme dependencies, asset management, UI frameworks |
+| **🔍 Search & Indexing** | Full-text search capabilities, content indexing system |
+| **🌐 Internationalization** | Multi-language support, translation management |
+| **🛡️ Security Features** | Custom authentication, role-based permissions, data protection |
+| **🚨 Migration Critical Points** | High-risk areas, breaking changes, custom code locations |
+| **📊 Technical Statistics** | Plugin count, file statistics, dependencies summary |
+| **🔄 Migration Strategy** | Phased approach recommendations, testing priorities |
+
+---
+
 ## 📁 PROJECT STRUCTURE OVERVIEW
 
 ### Root Architecture
