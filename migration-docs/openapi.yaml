@@ -1,0 +1,1117 @@
+openapi: 3.0.3
+info:
+  title: QuickAppsCMS API
+  description: |
+    QuickAppsCMS (CakePHP 3.3.16) REST-like API documentation.
+    
+    QuickAppsCMS is a plugin-based Content Management System built on CakePHP.
+    This API provides endpoints for user management, content management, file handling,
+    and system administration.
+    
+    **Authentication**: Session-based authentication with custom User plugin
+    **Base URL**: http://localhost:8080 (Development)
+    **Content Types**: HTML, JSON, XML, RSS
+    
+    ## Migration Note
+    This API is currently implemented in CakePHP 3.3.16 and is being migrated to CakePHP 5.
+    Significant changes to authentication, routing, and request handling are expected.
+  version: 2.0.0
+  contact:
+    name: QuickAppsCMS
+    url: http://quickappscms.org
+  license:
+    name: GPL-3.0
+    url: http://opensource.org/licenses/gpl-3.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Development server (CakePHP 3)
+  - url: http://localhost:8090
+    description: Migration target server (CakePHP 5)
+
+paths:
+  # Authentication Endpoints
+  /login:
+    get:
+      tags:
+        - Authentication
+      summary: Display login form
+      description: Returns the login form for user authentication
+      responses:
+        '200':
+          description: Login form displayed
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML login form
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with username/email and password
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Username or email address
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: User password
+                  example: securepassword
+              required:
+                - username
+                - password
+      responses:
+        '302':
+          description: Login successful, redirect to dashboard or previous page
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /admin
+            Set-Cookie:
+              schema:
+                type: string
+                example: CAKEPHP=session_token; Path=/
+        '200':
+          description: Login failed, form redisplayed with errors
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML login form with error messages
+
+  /logout:
+    get:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Log out the current user and clear session
+      responses:
+        '302':
+          description: Logout successful, redirect to homepage
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /
+
+  /unauthorized:
+    get:
+      tags:
+        - Authentication
+      summary: Unauthorized access page
+      description: Display unauthorized access page with login option
+      responses:
+        '200':
+          description: Unauthorized page displayed
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML unauthorized access page
+    post:
+      tags:
+        - Authentication
+      summary: Quick login from unauthorized page
+      description: Allow login directly from unauthorized access page
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '302':
+          description: Login successful, redirect to originally requested page
+        '200':
+          description: Login failed, unauthorized page redisplayed
+
+  # User Management
+  /register:
+    get:
+      tags:
+        - User Management
+      summary: Display registration form
+      description: Returns the user registration form
+      responses:
+        '200':
+          description: Registration form displayed
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML registration form
+    post:
+      tags:
+        - User Management
+      summary: Register new user
+      description: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+      responses:
+        '200':
+          description: Registration processed, activation email sent
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Registration success page
+
+  /activate/{token}:
+    get:
+      tags:
+        - User Management
+      summary: Activate user account
+      description: Activate user account using token from email
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Activation token from email
+          example: abc123def456
+      responses:
+        '200':
+          description: Account activation result
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Activation success or failure page
+
+  /user/me:
+    get:
+      tags:
+        - User Management
+      summary: Get current user profile
+      description: Display current user's profile form
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: User profile form
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML profile form
+        '302':
+          description: User not authenticated, redirect to login
+    post:
+      tags:
+        - User Management
+      summary: Update current user profile
+      description: Update current user's profile information
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        '302':
+          description: Profile updated successfully, redirect to profile page
+        '200':
+          description: Validation errors, form redisplayed with errors
+
+  /user/profile/{id}:
+    get:
+      tags:
+        - User Management
+      summary: View user profile
+      description: Display user profile page (public profiles only)
+      parameters:
+        - name: id
+          in: path
+          required: false
+          schema:
+            type: integer
+          description: User ID (optional, defaults to current user)
+          example: 123
+      responses:
+        '200':
+          description: User profile page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML user profile page
+        '403':
+          description: Profile is private or insufficient permissions
+        '404':
+          description: User not found
+
+  # Content Management
+  /:
+    get:
+      tags:
+        - Content
+      summary: Homepage
+      description: Display site homepage with promoted content
+      responses:
+        '200':
+          description: Homepage content
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML homepage with promoted content
+
+  /{content_type_slug}/{content_slug}.html:
+    get:
+      tags:
+        - Content
+      summary: Content details
+      description: Display detailed content page
+      parameters:
+        - name: content_type_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Content type slug
+          example: article
+        - name: content_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Content slug
+          example: introducing-quickapps-cms
+      responses:
+        '200':
+          description: Content detail page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML content page with comments
+        '403':
+          description: Insufficient permissions to view content
+        '404':
+          description: Content not found
+
+  /find/{criteria}:
+    get:
+      tags:
+        - Search
+      summary: Search content
+      description: Search for content using various criteria and operators
+      parameters:
+        - name: criteria
+          in: path
+          required: true
+          schema:
+            type: string
+          description: |
+            Search criteria with operators:
+            - "exact phrase" for exact matching
+            - -excluded for exclusion
+            - OR for logical OR
+            - language:code for language-specific search
+          example: quickapps cms
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Results per page
+      responses:
+        '200':
+          description: Search results page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML search results with pagination
+
+  /rss/{criteria}:
+    get:
+      tags:
+        - RSS
+      summary: RSS feed
+      description: Generate RSS feed for search results
+      parameters:
+        - name: criteria
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Search criteria (same as content search)
+          example: latest news
+      responses:
+        '200':
+          description: RSS feed
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+                description: RSS XML feed
+                example: |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <rss version="2.0">
+                    <channel>
+                      <title>QuickAppsCMS</title>
+                      <description>Search results for: latest news</description>
+                      <item>
+                        <title>Content Title</title>
+                        <description>Content teaser...</description>
+                        <link>http://localhost:8080/article/content-slug.html</link>
+                        <pubDate>Wed, 01 Jan 2020 00:00:00 GMT</pubDate>
+                      </item>
+                    </channel>
+                  </rss>
+
+  # File Management
+  /field/file-handler/upload/{name}:
+    post:
+      tags:
+        - File Management
+      summary: Upload file
+      description: Upload a file to a specific field instance
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Field instance name
+          example: field_document
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                Filedata:
+                  type: string
+                  format: binary
+                  description: File to upload
+              required:
+                - Filedata
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          description: Invalid file or upload error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /field/file-handler/delete/{name}:
+    post:
+      tags:
+        - File Management
+      summary: Delete file
+      description: Delete a previously uploaded file
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Field instance name
+        - name: file
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Filename to delete
+      responses:
+        '200':
+          description: File deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /field/image-handler/upload/{name}:
+    post:
+      tags:
+        - Image Management
+      summary: Upload image
+      description: Upload an image file to a specific field instance
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Field instance name
+          example: field_image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                Filedata:
+                  type: string
+                  format: binary
+                  description: Image file to upload
+              required:
+                - Filedata
+      responses:
+        '200':
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageUploadResponse'
+
+  /field/image-handler/thumbnail/{name}:
+    get:
+      tags:
+        - Image Management
+      summary: Get image thumbnail
+      description: Retrieve a thumbnail version of an uploaded image
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Field instance name
+        - name: file
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Image filename
+        - name: size
+          in: query
+          schema:
+            type: string
+            enum: [small, medium, large]
+            default: medium
+          description: Thumbnail size
+      responses:
+        '200':
+          description: Thumbnail image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  # Admin Endpoints
+  /admin:
+    get:
+      tags:
+        - Administration
+      summary: Admin dashboard
+      description: Display main admin dashboard
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Admin dashboard
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML admin dashboard
+        '403':
+          description: Admin access required
+
+  /admin/content/manage:
+    get:
+      tags:
+        - Content Management (Admin)
+      summary: List all content
+      description: Display paginated list of all content items
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Search filter for content
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: sort
+          in: query
+          schema:
+            type: string
+          description: Sort field
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort direction
+      responses:
+        '200':
+          description: Content management page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML content list with management options
+
+  /admin/content/manage/add/{typeSlug}:
+    get:
+      tags:
+        - Content Management (Admin)
+      summary: Add content form
+      description: Display form to add new content of specified type
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: typeSlug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Content type slug
+          example: article
+      responses:
+        '200':
+          description: Content creation form
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML content creation form
+    post:
+      tags:
+        - Content Management (Admin)
+      summary: Create content
+      description: Create new content item
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: typeSlug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Content type slug
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentCreate'
+      responses:
+        '302':
+          description: Content created successfully, redirect to content list
+        '200':
+          description: Validation errors, form redisplayed
+
+  /admin/content/manage/edit/{id}:
+    get:
+      tags:
+        - Content Management (Admin)
+      summary: Edit content form
+      description: Display form to edit existing content
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      responses:
+        '200':
+          description: Content edit form
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML content edit form
+        '404':
+          description: Content not found
+    post:
+      tags:
+        - Content Management (Admin)
+      summary: Update content
+      description: Update existing content item
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentUpdate'
+      responses:
+        '302':
+          description: Content updated successfully
+        '200':
+          description: Validation errors, form redisplayed
+
+  /admin/content/manage/delete/{id}:
+    post:
+      tags:
+        - Content Management (Admin)
+      summary: Delete content
+      description: Delete a content item
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      responses:
+        '302':
+          description: Content deleted successfully, redirect to content list
+        '404':
+          description: Content not found
+
+  # System Administration
+  /admin/system/plugins:
+    get:
+      tags:
+        - Plugin Management
+      summary: List plugins
+      description: Display list of all plugins with their status
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Plugin management page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: HTML plugin list with management options
+
+  /admin/system/plugins/install:
+    post:
+      tags:
+        - Plugin Management
+      summary: Install plugin
+      description: Install a new plugin from file upload, URL, or file system
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/PluginInstallFile'
+                - $ref: '#/components/schemas/PluginInstallURL'
+                - $ref: '#/components/schemas/PluginInstallPath'
+      responses:
+        '302':
+          description: Plugin installed successfully
+        '200':
+          description: Installation errors, form redisplayed with errors
+
+  /admin/system/plugins/enable/{pluginName}:
+    post:
+      tags:
+        - Plugin Management
+      summary: Enable plugin
+      description: Enable a disabled plugin
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: pluginName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Plugin name
+          example: MediaManager
+      responses:
+        '302':
+          description: Plugin enabled successfully
+
+  /admin/system/plugins/disable/{pluginName}:
+    post:
+      tags:
+        - Plugin Management
+      summary: Disable plugin
+      description: Disable an active plugin
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: pluginName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Plugin name
+      responses:
+        '302':
+          description: Plugin disabled successfully
+
+  /admin/system/plugins/delete/{pluginName}:
+    post:
+      tags:
+        - Plugin Management
+      summary: Delete plugin
+      description: Completely remove a plugin from the system
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: pluginName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Plugin name
+      responses:
+        '302':
+          description: Plugin deleted successfully
+
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: CAKEPHP
+      description: Session-based authentication using CakePHP session cookies
+
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Username or email address
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          description: User password
+      required:
+        - username
+        - password
+
+    UserRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Full name
+          example: John Doe
+        username:
+          type: string
+          description: Unique username
+          example: johndoe
+        email:
+          type: string
+          format: email
+          description: Email address
+          example: john@example.com
+        password:
+          type: string
+          format: password
+          description: Password
+        password_confirm:
+          type: string
+          format: password
+          description: Password confirmation
+        web:
+          type: string
+          format: uri
+          description: Website URL
+          example: http://johndoe.com
+        locale:
+          type: string
+          description: Preferred language
+          example: en_US
+        public_profile:
+          type: boolean
+          description: Make profile public
+          default: true
+      required:
+        - name
+        - username
+        - email
+        - password
+        - password_confirm
+
+    UserProfile:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Full name
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: Email address
+          example: john@example.com
+        web:
+          type: string
+          format: uri
+          description: Website URL
+          example: http://johndoe.com
+        locale:
+          type: string
+          description: Preferred language
+          example: en_US
+        public_profile:
+          type: boolean
+          description: Make profile public
+
+    ContentCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Content title
+          example: My New Article
+        body:
+          type: string
+          description: Content body
+          example: This is the content body...
+        description:
+          type: string
+          description: Content description/summary
+          example: Brief description of the article
+        content_type_slug:
+          type: string
+          description: Content type slug
+          example: article
+        promote:
+          type: boolean
+          description: Promote to front page
+          default: false
+        sticky:
+          type: boolean
+          description: Make sticky (show at top)
+          default: false
+        comment_status:
+          type: integer
+          description: Comment status (0=disabled, 1=read, 2=read+write)
+          enum: [0, 1, 2]
+          default: 1
+        status:
+          type: integer
+          description: Publication status (0=draft, 1=published)
+          enum: [0, 1]
+          default: 1
+        language:
+          type: string
+          description: Content language
+          example: en_US
+      required:
+        - title
+        - content_type_slug
+
+    ContentUpdate:
+      allOf:
+        - $ref: '#/components/schemas/ContentCreate'
+        - type: object
+          properties:
+            id:
+              type: integer
+              description: Content ID
+              readOnly: true
+
+    FileUploadResponse:
+      type: object
+      properties:
+        file_name:
+          type: string
+          description: Uploaded filename
+          example: document.pdf
+        file_size:
+          type: integer
+          description: File size in bytes
+          example: 2048576
+        mime_icon:
+          type: string
+          description: MIME type icon URL
+          example: /files/file_icons/pdf.png
+        settings:
+          type: object
+          description: Field settings
+          properties:
+            upload_folder:
+              type: string
+              example: /files/uploads/
+            extensions:
+              type: string
+              example: pdf,doc,docx,txt
+            file_size:
+              type: string
+              example: 5MB
+
+    ImageUploadResponse:
+      type: object
+      properties:
+        file_name:
+          type: string
+          description: Uploaded filename
+          example: photo.jpg
+        file_size:
+          type: integer
+          description: File size in bytes
+          example: 1024000
+        dimensions:
+          type: object
+          properties:
+            width:
+              type: integer
+              example: 1920
+            height:
+              type: integer
+              example: 1080
+        thumbnails:
+          type: object
+          properties:
+            small:
+              type: string
+              example: /files/uploads/photo_thumb_small.jpg
+            medium:
+              type: string
+              example: /files/uploads/photo_thumb_medium.jpg
+
+    PluginInstallFile:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Plugin ZIP file
+        activate:
+          type: boolean
+          description: Activate plugin after installation
+          default: false
+
+    PluginInstallURL:
+      type: object
+      properties:
+        download:
+          type: boolean
+          description: Install from URL
+          default: true
+        url:
+          type: string
+          format: uri
+          description: Plugin download URL
+          example: https://example.com/plugin.zip
+        activate:
+          type: boolean
+          description: Activate plugin after installation
+          default: false
+
+    PluginInstallPath:
+      type: object
+      properties:
+        file_system:
+          type: boolean
+          description: Install from file system
+          default: true
+        path:
+          type: string
+          description: Local file system path
+          example: /path/to/plugin/
+        activate:
+          type: boolean
+          description: Activate plugin after installation
+          default: false
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation completed successfully
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Operation failed
+        code:
+          type: integer
+          example: 400
+        errors:
+          type: object
+          description: Validation errors
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: User Management
+    description: User registration, profiles, and account management
+  - name: Content
+    description: Public content display and navigation
+  - name: Search
+    description: Content search functionality
+  - name: RSS
+    description: RSS feed generation
+  - name: File Management
+    description: File upload and management
+  - name: Image Management
+    description: Image upload and thumbnail generation
+  - name: Administration
+    description: System administration dashboard
+  - name: Content Management (Admin)
+    description: Admin content management operations
+  - name: Plugin Management
+    description: Plugin installation and management
+
+externalDocs:
+  description: QuickAppsCMS Documentation
+  url: http://quickappscms.org
