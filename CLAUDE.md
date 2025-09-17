@@ -203,6 +203,7 @@ These documents should be consulted in order:
 2. **PLUGINS_DEPENDENCY_MAP.md** - Plan plugin migration order  
 3. **CONTROLLERS_DEPENDENCY_MAP.md** - Understand controller migration complexity
 4. **UNKNOWN_PATTERNS/** - Identify custom patterns requiring special migration handling
+5. **TEST_PLAN.md** - Comprehensive testing strategy for migration validation
 
 ## File Locations
 
@@ -212,6 +213,8 @@ These documents should be consulted in order:
 - `quickapps-cakephp5/src/config/app_local.php` - Target app configuration
 - `migration-docs/` - Migration analysis documentation
 - `migration-docs/unknown_patterns/` - Custom QuickAppsCMS architectural patterns
+- `migration-docs/TEST_PLAN.md` - Master testing plan for migration validation
+- `migration-docs/test-plans/` - Feature-specific test plans (15 detailed plans)
 
 ### Plugin Locations
 - Core plugins: `/vendor/quickapps-plugins/`
@@ -226,8 +229,10 @@ When migrating functionality, always:
 3. Map custom fields and EAV relationships  
 4. Check for plugin interdependencies
 5. **Review unknown patterns** in `/migration-docs/unknown_patterns/` that may affect the component
-6. Validate admin interface functionality
-7. Test public-facing features
-8. Verify permission systems work correctly
+6. **Execute feature test plan** from `/migration-docs/test-plans/TEST_PLAN_[FEATURE].md`
+7. Validate admin interface functionality
+8. Test public-facing features
+9. Verify permission systems work correctly
+10. **Confirm all test scenarios pass** before marking migration complete
 
 The QuickAppsCMS plugin ecosystem is tightly integrated, so changes to one plugin often affect others. **Pay special attention to the 10 documented unknown patterns** as they represent critical architectural decisions that require careful migration planning.
