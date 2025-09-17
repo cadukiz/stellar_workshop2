@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
+    libmcrypt-dev \
+    default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions required by QuickAppsCMS
@@ -30,6 +32,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     opcache \
     fileinfo
 
+# Install mcrypt extension via PECL (required for CakePHP 3/QuickAppsCMS)
+RUN pecl install mcrypt-1.0.4 \
+    && docker-php-ext-enable mcrypt
+
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
 
@@ -44,6 +50,15 @@ COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
+
+# Ensure writable directories for QuickAppsCMS
+RUN mkdir -p /var/www/html/tmp/cache/models \
+    /var/www/html/tmp/cache/persistent \
+    /var/www/html/tmp/cache/views \
+    /var/www/html/tmp/sessions \
+    /var/www/html/logs \
+    && chmod -R 777 /var/www/html/tmp \
+    && chmod -R 777 /var/www/html/logs
 
 # PHP Configuration
 RUN echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/custom.ini \

@@ -25,6 +25,7 @@ services:
     container_name: quickapps-db
     ports:
       - "3306:3306"
+    command: --sql-mode="NO_ENGINE_SUBSTITUTION"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-quickapps}
