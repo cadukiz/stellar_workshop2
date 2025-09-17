@@ -88,7 +88,7 @@ namespace App\Controller;
 }
 ```
 
-### 2. Configuration System
+### 2. Configuration System & Database Drivers
 
 #### CakePHP 3
 ```php
@@ -98,6 +98,24 @@ return [
     'App' => [
         'namespace' => 'App',
         'encoding' => env('APP_ENCODING', 'UTF-8'),
+    ],
+    
+    // Database configuration
+    'Datasources' => [
+        'default' => [
+            'className' => 'Cake\Database\Connection',
+            'driver' => 'Cake\Database\Driver\Mysql',
+            'host' => 'localhost',
+            'username' => 'my_app',
+            'password' => 'secret',
+            'database' => 'my_app',
+            'encoding' => 'utf8',
+            'timezone' => 'UTC',
+            'flags' => [],
+            'cacheMetadata' => true,
+            'log' => false,
+            'quoteIdentifiers' => false,
+        ]
     ]
 ];
 
@@ -112,9 +130,51 @@ Configure::read('App.namespace');
 APP_NAME="QuickApps CMS"
 DEBUG=true
 APP_ENCODING=UTF-8
+DATABASE_URL="mysql://user:pass@host/database"
 
 // Reading config (same)
 Configure::read('App.namespace');
+
+// Database configuration with enhanced drivers
+'Datasources' => [
+    'default' => [
+        'className' => 'Cake\Database\Connection',
+        'driver' => 'Cake\Database\Driver\Mysql',
+        'host' => env('DB_HOST', 'localhost'),
+        'username' => env('DB_USERNAME', 'my_app'),
+        'password' => env('DB_PASSWORD', 'secret'),
+        'database' => env('DB_DATABASE', 'my_app'),
+        'encoding' => 'utf8mb4', // Enhanced UTF-8 support
+        'timezone' => 'UTC',
+        'flags' => [
+            // MySQL 8.0 compatibility flags
+            PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+        ],
+        'cacheMetadata' => true,
+        'log' => env('DEBUG', false),
+        'quoteIdentifiers' => false,
+        
+        // New: Connection retry and pooling
+        'retry' => [
+            'count' => 3,
+            'delay' => 100, // milliseconds
+        ],
+        
+        // New: Read/write splitting
+        'replicas' => [
+            'replica1' => [
+                'host' => env('DB_READ_HOST', 'replica1.example.com'),
+                'username' => env('DB_READ_USERNAME', 'reader'),
+                'password' => env('DB_READ_PASSWORD', 'secret'),
+            ]
+        ],
+        
+        // Enhanced SSL configuration
+        'ssl_key' => env('DB_SSL_KEY', null),
+        'ssl_cert' => env('DB_SSL_CERT', null),
+        'ssl_ca' => env('DB_SSL_CA', null),
+    ]
+],
 
 // New: Dependency Injection Container
 // config/services.php
@@ -125,7 +185,75 @@ return function (ServiceConfig $services) {
 };
 ```
 
-### 3. Database Layer
+### Database Driver Differences
+
+#### MySQL Driver Changes
+```php
+// CakePHP 3 - Basic MySQL configuration
+'Datasources' => [
+    'default' => [
+        'driver' => 'Cake\Database\Driver\Mysql',
+        'encoding' => 'utf8',
+        'persistent' => false,
+        'init' => ['SET sql_mode = "STRICT_TRANS_TABLES"']
+    ]
+]
+
+// CakePHP 5 - Enhanced MySQL with better defaults
+'Datasources' => [
+    'default' => [
+        'driver' => 'Cake\Database\Driver\Mysql',
+        'encoding' => 'utf8mb4', // Better Unicode support
+        'collation' => 'utf8mb4_unicode_ci',
+        'persistent' => false,
+        'init' => [
+            'SET sql_mode = "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"'
+        ],
+        
+        // New: Native JSON column support
+        'typeMap' => [
+            'json' => 'Cake\Database\Type\JsonType',
+            'uuid' => 'Cake\Database\Type\UuidType',
+        ]
+    ]
+]
+```
+
+#### PostgreSQL Driver Changes
+```php
+// CakePHP 3 - PostgreSQL
+'driver' => 'Cake\Database\Driver\Postgres',
+'schema' => 'public'
+
+// CakePHP 5 - Enhanced PostgreSQL
+'driver' => 'Cake\Database\Driver\Postgres',
+'schema' => env('DB_SCHEMA', 'public'),
+// New: Array and JSON type support
+'typeMap' => [
+    'json' => 'Cake\Database\Type\JsonType',
+    'jsonb' => 'Cake\Database\Type\JsonType',
+    'uuid' => 'Cake\Database\Type\UuidType',
+    'inet' => 'Cake\Database\Type\StringType',
+]
+```
+
+#### SQLite Driver Changes
+```php
+// CakePHP 3 - SQLite
+'driver' => 'Cake\Database\Driver\Sqlite',
+'database' => ROOT . DS . 'tmp' . DS . 'debug_kit.sqlite'
+
+// CakePHP 5 - Enhanced SQLite with WAL mode
+'driver' => 'Cake\Database\Driver\Sqlite',
+'database' => env('DB_FILE', ROOT . DS . 'tmp' . DS . 'app.sqlite'),
+'init' => [
+    'PRAGMA journal_mode=WAL', // Better concurrency
+    'PRAGMA synchronous=NORMAL',
+    'PRAGMA foreign_keys=ON'
+]
+```
+
+### 3. Database Layer & ORM Changes
 
 #### CakePHP 3
 ```php
@@ -146,11 +274,27 @@ class UsersTable extends Table {
     }
 }
 
-// Query
+// Query - Basic find operations
 $users = $this->Users->find()
     ->where(['active' => 1])
     ->contain(['Roles'])
     ->all();
+
+// Custom finder methods
+public function findActive($query, $options) {
+    return $query->where(['active' => true]);
+}
+
+// Query result handling
+$user = $this->Users->get($id);
+$users = $this->Users->find('all')->toArray();
+
+// Count queries
+$count = $this->Users->find()->count();
+
+// First/last records
+$first = $this->Users->find()->first();
+$last = $this->Users->find()->last();
 ```
 
 #### CakePHP 5
@@ -172,19 +316,51 @@ class UsersTable extends Table {
     }
 }
 
-// Query - Return type hints
+// Query - Return type hints required
 public function findActive(Query $query, array $options): Query {
-    return $query->where(['active' => 1]);
+    return $query->where(['active' => true]);
 }
+
+// Query result handling with types
+$user = $this->Users->get($id); // Returns User entity or throws exception
+$users = $this->Users->find()->all(); // Returns Collection, not array
+$usersArray = $this->Users->find()->toArray(); // Explicit array conversion
+
+// Count queries - return int
+$count = $this->Users->find()->count(); // Returns int
+
+// First/last records - nullable return
+$first = $this->Users->find()->first(); // Returns User|null
+$last = $this->Users->find()->last(); // Returns User|null
+
+// New: Typed queries
+$users = $this->Users->find()
+    ->where(['active' => true])
+    ->contain(['Roles'])
+    ->orderByAsc('created')  // orderBy methods added
+    ->orderByDesc('modified')
+    ->all();
+
+// New: Query expressions with types
+use Cake\Database\Expression\QueryExpression;
+
+$query = $this->Users->find()
+    ->where(function (QueryExpression $exp) {
+        return $exp->gte('age', 18);
+    });
 
 // New: Native enum support
 enum UserStatus: string {
     case ACTIVE = 'active';
     case INACTIVE = 'inactive';
 }
+
+// Use enums in queries
+$activeUsers = $this->Users->find()
+    ->where(['status' => UserStatus::ACTIVE]);
 ```
 
-### 4. Controllers
+### 4. Controllers & Request/Response Changes
 
 #### CakePHP 3
 ```php
@@ -201,6 +377,37 @@ class UsersController extends AppController {
         $this->set(compact('users'));
     }
 
+    public function view($id) {
+        // Request object methods
+        if ($this->request->is('ajax')) {
+            $this->layout = 'ajax';
+        }
+        
+        // Get request data
+        $data = $this->request->data;
+        $query = $this->request->query;
+        $params = $this->request->params;
+        
+        // Response methods
+        $this->response->type('json');
+        $this->response->body(json_encode($user));
+        $this->response->statusCode(200);
+        
+        return $this->response;
+    }
+
+    public function add() {
+        $user = $this->Users->newEntity();
+        if ($this->request->is('post')) {
+            $user = $this->Users->patchEntity($user, $this->request->data);
+            if ($this->Users->save($user)) {
+                $this->Flash->success('User saved');
+                return $this->redirect(['action' => 'index']);
+            }
+        }
+        $this->set(compact('user'));
+    }
+
     public function beforeFilter(Event $event) {
         parent::beforeFilter($event);
         $this->Auth->allow(['view', 'index']);
@@ -212,6 +419,7 @@ class UsersController extends AppController {
 ```php
 use Cake\Http\Response;
 use Cake\Http\ServerRequest;
+use Cake\Event\EventInterface;
 
 class UsersController extends AppController {
 
@@ -225,6 +433,55 @@ class UsersController extends AppController {
         $users = $this->paginate($this->Users);
         $this->set(compact('users'));
         return null; // or return $this->render();
+    }
+
+    public function view(string $id): Response {
+        // Request object methods - same but with type safety
+        $request = $this->getRequest();
+        if ($request->is('ajax')) {
+            $this->viewBuilder()->setLayout('ajax');
+        }
+        
+        // Get request data - new methods
+        $data = $request->getParsedBody(); // replaces ->data
+        $query = $request->getQueryParams(); // replaces ->query
+        $params = $request->getAttribute('params'); // replaces ->params
+        $headers = $request->getHeaders(); // new method
+        
+        // Response methods - fluent interface
+        return $this->response
+            ->withType('json')
+            ->withStringBody(json_encode($user))
+            ->withStatus(200);
+    }
+
+    public function add(): ?Response {
+        $user = $this->Users->newEmptyEntity();
+        $request = $this->getRequest();
+        
+        if ($request->is('post')) {
+            $user = $this->Users->patchEntity($user, $request->getParsedBody());
+            if ($this->Users->save($user)) {
+                $this->Flash->success('User saved');
+                return $this->redirect(['action' => 'index']);
+            }
+        }
+        $this->set(compact('user'));
+        return null;
+    }
+
+    // New: File uploads handling
+    public function upload(): Response {
+        $request = $this->getRequest();
+        $uploadedFile = $request->getUploadedFile('avatar');
+        
+        if ($uploadedFile && $uploadedFile->getError() === UPLOAD_ERR_OK) {
+            $filename = $uploadedFile->getClientFilename();
+            $uploadedFile->moveTo('/path/to/uploads/' . $filename);
+        }
+        
+        return $this->response->withType('json')
+            ->withStringBody(json_encode(['status' => 'success']));
     }
 
     public function beforeFilter(EventInterface $event): ?Response {
@@ -387,16 +644,46 @@ return static function (RouteBuilder $routes) {
 };
 ```
 
-### 7. Forms and Validation
+### 7. Forms, Helpers & Validation Changes
 
-#### CakePHP 3
+#### CakePHP 3 - FormHelper & HtmlHelper
 ```php
-// Template
+// Basic form
 <?= $this->Form->create($user) ?>
 <?= $this->Form->control('email') ?>
 <?= $this->Form->control('password') ?>
 <?= $this->Form->button(__('Submit')) ?>
 <?= $this->Form->end() ?>
+
+// Form with options
+<?= $this->Form->create($user, [
+    'type' => 'file',
+    'url' => ['action' => 'add']
+]) ?>
+<?= $this->Form->control('name', [
+    'label' => 'Full Name',
+    'required' => true
+]) ?>
+<?= $this->Form->control('avatar', ['type' => 'file']) ?>
+<?= $this->Form->control('role_id', [
+    'type' => 'select',
+    'options' => $roles,
+    'empty' => 'Select Role'
+]) ?>
+
+// HtmlHelper methods
+<?= $this->Html->link('Edit', ['action' => 'edit', $user->id]) ?>
+<?= $this->Html->image('logo.png', ['alt' => 'Logo']) ?>
+<?= $this->Html->css('styles') ?>
+<?= $this->Html->script('app') ?>
+<?= $this->Html->meta('description', 'Page description') ?>
+
+// Form helper methods
+<?= $this->Form->input('title') ?> // Deprecated
+<?= $this->Form->control('title') ?> // Preferred
+<?= $this->Form->checkbox('active') ?>
+<?= $this->Form->radio('gender', ['M' => 'Male', 'F' => 'Female']) ?>
+<?= $this->Form->select('country', $countries) ?>
 
 // Validation
 public function validationDefault(Validator $validator) {
@@ -413,16 +700,105 @@ public function validationDefault(Validator $validator) {
 }
 ```
 
-#### CakePHP 5
+#### CakePHP 5 - Enhanced FormHelper & HtmlHelper
 ```php
-// Template (similar but stricter types)
+// Basic form with type safety
 <?= $this->Form->create($user) ?>
 <?= $this->Form->control('email', ['type' => 'email']) ?>
 <?= $this->Form->control('password', ['type' => 'password']) ?>
 <?= $this->Form->button(__('Submit')) ?>
 <?= $this->Form->end() ?>
 
-// Validation with type hints
+// Form with enhanced options and attributes
+<?= $this->Form->create($user, [
+    'type' => 'file',
+    'url' => ['action' => 'add'],
+    'class' => 'needs-validation',
+    'novalidate' => true
+]) ?>
+<?= $this->Form->control('name', [
+    'label' => 'Full Name',
+    'required' => true,
+    'class' => 'form-control',
+    'data-validate' => 'required'
+]) ?>
+<?= $this->Form->control('avatar', [
+    'type' => 'file',
+    'accept' => 'image/*'
+]) ?>
+<?= $this->Form->control('role_id', [
+    'type' => 'select',
+    'options' => $roles,
+    'empty' => 'Select Role',
+    'class' => 'form-select'
+]) ?>
+
+// New: Enhanced date/time controls
+<?= $this->Form->control('birth_date', [
+    'type' => 'date',
+    'min' => '1900-01-01',
+    'max' => date('Y-m-d')
+]) ?>
+<?= $this->Form->control('meeting_time', [
+    'type' => 'datetime-local',
+    'step' => 300 // 5 minute steps
+]) ?>
+
+// HtmlHelper with enhanced features
+<?= $this->Html->link('Edit', ['action' => 'edit', $user->id], [
+    'class' => 'btn btn-primary',
+    'data-bs-toggle' => 'tooltip',
+    'title' => 'Edit user details'
+]) ?>
+<?= $this->Html->image('logo.png', [
+    'alt' => 'Logo',
+    'loading' => 'lazy',
+    'width' => 200,
+    'height' => 50
+]) ?>
+<?= $this->Html->css('styles', ['defer' => true]) ?>
+<?= $this->Html->script('app', ['async' => true]) ?>
+
+// New: Enhanced meta methods
+<?= $this->Html->meta([
+    'name' => 'description',
+    'content' => 'Page description'
+]) ?>
+<?= $this->Html->meta([
+    'property' => 'og:title',
+    'content' => 'Page title'
+]) ?>
+
+// Form helper improvements
+<?= $this->Form->control('title', [
+    'type' => 'text',
+    'maxlength' => 255,
+    'placeholder' => 'Enter title...'
+]) ?>
+<?= $this->Form->control('active', [
+    'type' => 'checkbox',
+    'hiddenField' => false // Don't create hidden field
+]) ?>
+<?= $this->Form->control('tags', [
+    'type' => 'select',
+    'multiple' => true,
+    'options' => $tags
+]) ?>
+
+// New: Range and number inputs
+<?= $this->Form->control('price', [
+    'type' => 'number',
+    'min' => 0,
+    'step' => 0.01
+]) ?>
+<?= $this->Form->control('rating', [
+    'type' => 'range',
+    'min' => 1,
+    'max' => 10,
+    'value' => 5
+]) ?>
+
+// Validation with enhanced type hints
 public function validationDefault(Validator $validator): Validator {
     $validator
         ->integer('id')
@@ -431,11 +807,49 @@ public function validationDefault(Validator $validator): Validator {
     $validator
         ->email('email')
         ->requirePresence('email', 'create')
-        ->notEmptyString('email'); // notEmptyString instead of notEmpty
+        ->notEmptyString('email') // notEmptyString instead of notEmpty
+        ->add('email', 'unique', ['rule' => 'validateUnique']);
+
+    // New: Enhanced validation rules
+    $validator
+        ->scalar('name')
+        ->maxLength('name', 255)
+        ->requirePresence('name', 'create')
+        ->notEmptyString('name')
+        ->add('name', 'alphaNumeric', [
+            'rule' => ['custom', '/^[a-zA-Z0-9\s]+$/'],
+            'message' => 'Name can only contain letters, numbers and spaces'
+        ]);
+
+    $validator
+        ->decimal('price', 2)
+        ->greaterThanOrEqual('price', 0)
+        ->requirePresence('price', 'create');
 
     return $validator;
 }
+
+// New: Custom validation methods with types
+public function validationUpdate(Validator $validator): Validator {
+    $validator = $this->validationDefault($validator);
+    
+    $validator->remove('email', 'unique');
+    
+    return $validator;
+}
 ```
+
+### Key FormHelper/HtmlHelper Changes
+
+| Feature | CakePHP 3 | CakePHP 5 |
+|---------|-----------|-----------|
+| **Input method** | `Form->input()` (deprecated) | `Form->control()` only |
+| **Date inputs** | Limited HTML5 support | Full HTML5 date/time types |
+| **File uploads** | Basic file type | Enhanced with accept attribute |
+| **Validation messages** | `notEmpty()` | `notEmptyString()` for strings |
+| **Meta tags** | String-based | Array-based configuration |
+| **Asset loading** | Basic defer | Async/defer support |
+| **Form attributes** | Limited HTML5 | Full HTML5 form validation |
 
 ### 8. Components
 
@@ -575,6 +989,203 @@ class CustomCommand extends Command {
 
 // Run: bin/cake custom
 ```
+
+---
+
+## 🔀 Middleware vs Dispatcher Filters
+
+### CakePHP 3 - Dispatcher Filters
+
+#### CakePHP 3
+```php
+// src/Filter/CustomFilter.php
+namespace App\Filter;
+
+use Cake\Event\Event;
+use Cake\Routing\DispatcherFilter;
+
+class CustomFilter extends DispatcherFilter {
+    
+    public function beforeDispatch(Event $event) {
+        $request = $event->getData('request');
+        $response = $event->getData('response');
+        
+        // Custom logic before controller
+        if ($request->is('mobile')) {
+            $request->setParam('prefix', 'mobile');
+        }
+        
+        return true;
+    }
+    
+    public function afterDispatch(Event $event) {
+        $request = $event->getData('request');
+        $response = $event->getData('response');
+        
+        // Custom logic after controller
+        $response->header('X-Custom-Header', 'processed');
+        
+        return $response;
+    }
+}
+
+// config/bootstrap.php
+use Cake\Routing\DispatcherFactory;
+
+DispatcherFactory::add('Custom', ['priority' => 10]);
+
+// Built-in filters
+DispatcherFactory::add('Asset');
+DispatcherFactory::add('Routing');
+DispatcherFactory::add('ControllerFactory');
+```
+
+#### CakePHP 5 - Middleware Stack
+```php
+// src/Middleware/CustomMiddleware.php
+namespace App\Middleware;
+
+use Cake\Http\MiddlewareInterface;
+use Cake\Http\Response;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class CustomMiddleware implements MiddlewareInterface {
+    
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        
+        // Before controller (like beforeDispatch)
+        if (strpos($request->getHeaderLine('User-Agent'), 'Mobile') !== false) {
+            $request = $request->withAttribute('isMobile', true);
+        }
+        
+        // Call next middleware/controller
+        $response = $handler->handle($request);
+        
+        // After controller (like afterDispatch)
+        return $response->withHeader('X-Custom-Header', 'processed');
+    }
+}
+
+// src/Application.php
+use App\Middleware\CustomMiddleware;
+use Cake\Http\Middleware\CsrfProtectionMiddleware;
+use Cake\Http\Middleware\EncryptedCookieMiddleware;
+use Cake\Http\Middleware\ErrorHandlerMiddleware;
+use Cake\Http\Middleware\SecurityHeadersMiddleware;
+use Cake\Routing\Middleware\AssetMiddleware;
+use Cake\Routing\Middleware\RoutingMiddleware;
+
+public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue {
+    $middlewareQueue
+        // Error handling first
+        ->add(new ErrorHandlerMiddleware(Configure::read('Error'), $this))
+        
+        // Asset serving
+        ->add(new AssetMiddleware([
+            'cacheTime' => Configure::read('Asset.cacheTime')
+        ]))
+        
+        // Routing
+        ->add(new RoutingMiddleware($this))
+        
+        // Security headers
+        ->add(new SecurityHeadersMiddleware())
+        
+        // CSRF protection
+        ->add(new CsrfProtectionMiddleware([
+            'httponly' => true,
+        ]))
+        
+        // Cookie encryption
+        ->add(new EncryptedCookieMiddleware(
+            ['session'],
+            Configure::read('Security.cookieKey')
+        ))
+        
+        // Custom middleware
+        ->add(new CustomMiddleware())
+        
+        // Authentication
+        ->add(new AuthenticationMiddleware($this));
+
+    return $middlewareQueue;
+}
+```
+
+### Migration Strategy: Filters → Middleware
+
+#### 1. Asset Filter → AssetMiddleware
+```php
+// CakePHP 3
+DispatcherFactory::add('Asset', [
+    'paths' => [
+        'plugin' => Configure::read('App.paths.plugins'),
+        'theme' => Configure::read('App.paths.templates')
+    ]
+]);
+
+// CakePHP 5
+->add(new AssetMiddleware([
+    'cacheTime' => '+1 year'
+]))
+```
+
+#### 2. Custom Authentication Filter → Authentication Middleware
+```php
+// CakePHP 3 - Custom Auth Filter
+class AuthFilter extends DispatcherFilter {
+    public function beforeDispatch(Event $event) {
+        $request = $event->getData('request');
+        if (!$this->isAuthorized($request)) {
+            throw new UnauthorizedException();
+        }
+    }
+}
+
+// CakePHP 5 - Authentication Middleware
+use Authentication\Middleware\AuthenticationMiddleware;
+
+->add(new AuthenticationMiddleware($this))
+```
+
+#### 3. Mobile Detection Filter → Custom Middleware
+```php
+// CakePHP 3
+class MobileFilter extends DispatcherFilter {
+    public function beforeDispatch(Event $event) {
+        $request = $event->getData('request');
+        if ($this->isMobile($request)) {
+            $request->setParam('prefix', 'mobile');
+        }
+    }
+}
+
+// CakePHP 5
+class MobileMiddleware implements MiddlewareInterface {
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+        if ($this->isMobile($request)) {
+            $request = $request->withAttribute('prefix', 'mobile');
+        }
+        return $handler->handle($request);
+    }
+}
+```
+
+### Key Differences
+
+| Aspect | CakePHP 3 Filters | CakePHP 5 Middleware |
+|--------|-------------------|---------------------|
+| **Order** | Priority-based | Sequential queue |
+| **Interface** | DispatcherFilter | MiddlewareInterface |
+| **Request/Response** | Event data | PSR-7 objects |
+| **Execution** | beforeDispatch/afterDispatch | Single process method |
+| **Error Handling** | Exception throwing | Response objects |
+| **Testability** | Event system | Direct unit testing |
 
 ---
 
