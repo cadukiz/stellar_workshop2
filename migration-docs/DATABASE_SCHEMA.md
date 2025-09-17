@@ -724,34 +724,39 @@ Content versioning system:
 - `content_revisions` stores historical versions
 - Hash-based deduplication prevents duplicate storage
 
-## Migration Considerations for CakePHP 5
+## Schema Usage Notes
 
-### Database Compatibility Issues
-1. **MySQL 5.7 → 8.0 Migration**:
-   - SQL mode changes (NO_ENGINE_SUBSTITUTION)
-   - Stricter data validation
-   - Reserved keyword conflicts
+### Query Patterns
+The QuickApps database schema supports several common query patterns:
 
-2. **Schema Changes Required**:
-   - Update foreign key constraints
-   - Review index definitions
-   - Validate character set consistency (utf8mb4)
+1. **Content Retrieval with Custom Fields**:
+   ```sql
+   SELECT c.*, ev.value_string, ev.value_text
+   FROM contents c
+   LEFT JOIN eav_values ev ON ev.entity_id = c.id
+   LEFT JOIN eav_attributes ea ON ea.id = ev.eav_attribute_id
+   WHERE c.status = 1 AND ea.table_alias = 'contents'
+   ```
 
-3. **EAV System Migration**:
-   - Complex field relationships
-   - Type-specific value columns
-   - Plugin-dependent field handlers
+2. **Hierarchical Navigation**:
+   ```sql
+   SELECT * FROM menu_links 
+   WHERE menu_id = 1 
+   ORDER BY lft ASC
+   ```
 
-### Performance Considerations
-- **Large Tables**: `eav_values` can become very large
-- **Complex Joins**: EAV queries require multiple joins
-- **Nested Sets**: Queries for hierarchical data can be expensive
-- **Search Integration**: `search_datasets` requires full-text indexing
+3. **User Permissions Check**:
+   ```sql
+   SELECT p.* FROM permissions p
+   JOIN users_roles ur ON ur.role_id = p.role_id
+   JOIN acos a ON a.id = p.aco_id
+   WHERE ur.user_id = ? AND a.alias = ?
+   ```
 
-### Data Integrity
-- Ensure referential integrity across plugin boundaries
-- Validate EAV relationships during migration
-- Maintain nested set consistency
-- Preserve user permissions and role assignments
+### Performance Recommendations
+- Index `eav_values` by `(entity_id, eav_attribute_id)` for custom field queries
+- Use nested sets efficiently for hierarchical data traversal
+- Implement proper caching for frequently accessed EAV field definitions
+- Consider partitioning large tables like `eav_values` and `search_datasets`
 
-This comprehensive schema documentation provides the foundation for understanding QuickApps' data architecture and planning the migration to CakePHP 5.
+This comprehensive schema documentation provides the foundation for understanding QuickApps' data architecture. For migration-specific considerations and issues, see the separate DATABASE_MIGRATION_ISSUES.md document.
